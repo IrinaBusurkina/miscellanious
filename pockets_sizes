@@ -1,0 +1,50 @@
+pudding <- read.csv("https://raw.githubusercontent.com/the-pudding/data/master/pockets/measurements.csv")
+
+library(dplyr)
+library(stringr)
+pudding_sum <- pudding %>% 
+  select(style, menWomen, maxHeightFront, maxHeightBack, maxWidthFront, maxWidthBack, minHeightFront, minHeightBack, minWidthFront, minWidthBack) %>% 
+  filter(style != "slim" & style != "regular")
+
+#верхний квадрант - у женщин положительный width & height, у мужчин отрицательный width и положительный height
+pudding_sum$maxWidthFront = ifelse(pudding_sum$menWomen == "men", pudding_sum$maxWidthFront*-1,pudding_sum$maxWidthFront)
+pudding_sum$minWidthFront = ifelse(pudding_sum$menWomen == "men", pudding_sum$minWidthFront*-1,pudding_sum$minWidthFront)
+
+#нижний квадрант - у женщин положительный width и отрицательный height, у мужчин отрицательный width & height
+pudding_sum$maxHeightBack = pudding_sum$maxHeightBack*-1
+pudding_sum$minHeightBack = pudding_sum$minHeightBack*-1
+pudding_sum$maxWidthBack = ifelse(pudding_sum$menWomen == "men", pudding_sum$maxWidthBack*-1,pudding_sum$maxWidthBack)
+pudding_sum$minWidthBack = ifelse(pudding_sum$menWomen == "men", pudding_sum$minWidthBack*-1,pudding_sum$minWidthBack)
+
+# min & max
+pudding_sum$id_row = c(1:71)
+pudding_sum = pudding_sum %>% gather("nazvaniya", "ziferki", 3:10)
+pudding_sum$minmax = str_extract(pudding_sum$nazvaniya, "^min|^max")
+pudding_sum$nazvaniya = str_remove_all(pudding_sum$nazvaniya, "^min|^max")
+#собрать обратно, но без min & max
+pudding_sum = pudding_sum %>% spread(nazvaniya, ziferki)
+#зафиксировать порядок уровней в переменной
+pudding_sum$style <- factor(pudding_sum$style, levels = c("skinny", "straight", "boot-cut"))
+
+
+pudding_sum %>% ggplot() +
+  geom_vline(xintercept = 0) +
+  geom_hline(yintercept = 0) +
+  scale_x_continuous(limits = c(-20, 28), breaks=seq(-20,28, by = 10), labels=c("20", "10", "0", "10", "20")) +
+  scale_y_continuous(limits = c(-20, 28), breaks=seq(-20,28, by = 10), labels=c("20", "10", "0", "10", "20")) +
+  geom_rect(aes(xmin = 0, xmax=WidthFront, ymin = HeightFront, ymax = 0, color = menWomen), fill = NA, stat = "identity") +
+  geom_rect(aes(xmin = 0, xmax=WidthBack, ymin = HeightBack, ymax = 0, color = menWomen), fill = NA, stat = "identity") +
+  labs(title = "Sizes of pockets",
+       subtitle = "top quadrants are for front pockets, bottom quadrants are for back pockets, 
+  right quadrants are for women's cloth, left quadrants are for men's cloth",
+       x = "width", y = "height") + 
+  facet_grid(minmax ~ style) +
+  scale_color_manual(values=c("#FFA500", "#006400")) +
+  labs(caption="data from https://pudding.cool/2018/08/pockets/") +
+  theme_bw() +
+  theme(axis.ticks = element_blank(),
+  strip.background = element_blank(),
+        legend.position="bottom",
+        legend.title = element_blank(),
+        panel.border = element_blank())
+#ggsave("pudding.png", width = 25, height = 20, units = "cm")
